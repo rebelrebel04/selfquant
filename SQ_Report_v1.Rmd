@@ -1,0 +1,62 @@
+---
+title: "SelfQuant Report"
+author:
+date:
+output: 
+  html_document:
+    theme: "darkly"
+    toc: true
+    toc_float: true
+    number_sections: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, error = FALSE)
+
+# Setup
+# LIBRARIES ####
+library(tidyverse); library(reshape2)
+#library(googlesheets4); library(googledrive)
+library(IXIS.Auto)
+library(lubridate)
+options(freezer = "./RDS")
+
+# Load data
+revive(all.1)
+```
+
+# L7 Summary
+
+```{r}
+all.1 %>% 
+  tail(30) %>% 
+  select(dim_date, meanHR, RMSSD, weight, hrAvg, hrMax, speedAvg, beatsPerMileAvg, tapRight, `Energy (kcal)`, `Fat (g)`, `Carbs (g)`, `Protein (g)`, cloudCover) %>% 
+  melt(id.var = "dim_date") %>% 
+  ggplot(aes(x = dim_date, y = value)) +
+  geom_line() +
+  geom_smooth(method = "loess", span = .3, se = FALSE) +
+  scale_x_date(date_breaks = "1 week", minor_breaks = "1 day") +
+  facet_grid(variable ~ ., scales = "free_y") +
+  ggthemes::theme_solarized()
+```
+
+
+TODO: 
+
+* This section summarizes key biometrics: L7D; LM; %Diff WoW,MoM; LT benchmarks
+  * Also include nutrition summary & comparison to goals
+  * % of ride time by day & zone (area chart?)
+* Primary goal of all of this is to get a read on trend toward overtraining basically, accumulated fatigue
+* Also include a "next week" outlook, something like:
+  * 7-day forecast (with sunlight, temp, precip, wind)
+  * trending out KPIs, including HR, HRV, weight, any efficieny metrics (beats per mile) etc.
+  # any flags/alerts, such as too much CHO, too many calories, etc.
+
+   
+# HRV
+
+* 14-day trend
+* MA
+* 7d CV trend
+
+
