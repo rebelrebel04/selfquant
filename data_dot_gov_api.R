@@ -1,6 +1,6 @@
-library(dplyr)
-library(tidyr)
-library(purrr)
+# library(dplyr)
+# library(tidyr)
+# library(purrr)
 
 
 get_api_key <- function(env_var = "DATA_DOT_GOV_KEY") {
@@ -105,8 +105,8 @@ GET_foods <- function(fdc_ids, ...) {
   make_GET_request(endpoint, ...)
   
 }
-fdc_ids <- c("534358", "373052")
-resp <- GET_foods(fdc_ids)
+# fdc_ids <- c("534358", "373052")
+# resp <- GET_foods(fdc_ids)
 # str(resp$content, max.level = 1)
 
 
@@ -139,7 +139,7 @@ parse_foods_df <- function(resp) {
   foods.1
   
 }
-View(parse_foods_df(resp))
+# parse_foods_df(resp)
 
 
 
@@ -168,8 +168,10 @@ GET_foods_search <- function(keyword, page_size = 25,...) {
   
 }
 # Search operators: https://fdc.nal.usda.gov/help.html#bkmk-2
-keyword <- "+macadamia +dry +salted"
-resp <- search_foods(keyword)
+# keyword <- 
+#   "+macadamia +dry +salted"
+#   #"+wildplanet +sockeye +salmon"
+# resp <- GET_foods_search(keyword)
 
 
 parse_search_foods_df <- function(resp) {
@@ -178,27 +180,16 @@ parse_search_foods_df <- function(resp) {
   foods.0 <- 
     tibble(food = pluck(resp, "content", "foods")) %>% 
     unnest_wider(food) %>% 
+    mutate(keyword = resp$content$foodSearchCriteria$query) %>% 
+    select(keyword, fdcId, score, description, everything()) %>% 
     # score: Relative score indicating how well the food matches the search criteria.
     arrange(desc(score))
   
   foods.0
   
 }
-parse_search_foods_df(resp)
+# parse_search_foods_df(resp)
 
 
-# Example ####
-keywords <- 
-  c(
-    "+macadamia +dry +salted",
-    "+wild +planet +sockeye +salmon"
-  )
 
-food_search <- 
-  keywords %>% 
-  purrr::map_dfr(~ GET_foods_search(.x, page_size = 1) %>% parse_search_foods_df())
-
-foods.0 <- 
-  GET_foods(food_search$fdcId) %>% 
-  parse_foods_df()
   
