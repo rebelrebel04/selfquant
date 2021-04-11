@@ -146,7 +146,7 @@ parse_foods_df <- function(resp) {
 #TODO: get & parse funs for search/ endpoint
 # curl -X GET "https://api.nal.usda.gov/fdc/v1/foods/search?query=macadamia&dataType=Branded,Foundation,Survey%20%28FNDDS%29,SR%20Legacy&pageSize=25&pageNumber=1&sortBy=fdcId&sortOrder=asc&api_key=1A6fLK9yfowSG7iq7LtmMI1XRMdZejbDPVqQIDJG" -H  "accept: application/json"
 
-GET_foods_search <- function(keyword, page_size = 25,...) {
+GET_foods_search <- function(keyword, page_size = 25, ...) {
   
   # https://app.swaggerhub.com/apis/fdcnal/food-data_central_api/1.0.0#/FDC/getFoodsSearch
   # curl -X GET "https://api.nal.usda.gov/fdc/v1/foods/search?query=macadamia&dataType=Branded,Foundation,Survey%20%28FNDDS%29,SR%20Legacy&pageSize=25&pageNumber=1&sortBy=fdcId&sortOrder=asc&api_key=1A6fLK9yfowSG7iq7LtmMI1XRMdZejbDPVqQIDJG" -H  "accept: application/json"
@@ -155,7 +155,8 @@ GET_foods_search <- function(keyword, page_size = 25,...) {
     httr::modify_url(
       query = list(
         query = keyword,
-        dataType = "Branded,Foundation,Survey (FNDDS),SR Legacy",
+        dataType = "Foundation,Survey (FNDDS),SR Legacy",
+        #dataType = "Branded,Foundation,Survey (FNDDS),SR Legacy",        
         pageSize = page_size, #200 max
         pageNumber = 1,
         sortBy = "fdcId",

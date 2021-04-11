@@ -3,6 +3,7 @@ library(ixplor)
 library(ixtra)
 
 source("./data_dot_gov_api.R")
+options(freezer = "./rds/")
 
 
 # READ IN FOOD SENSITIVITY RESULTS ####
@@ -17,6 +18,8 @@ ev.1 <-
   as_tibble() %>%
   mutate(
     food = str_extract(value, "[A-Z]+[ ,]?[A-Z]+"),
+    food = gsub(",", " ", food, fixed = TRUE),
+    food = trimws(gsub("(^| )", " +", food)) %&% " -BABYFOOD",
     score = as.integer(trimws(str_extract(value, " \\d+ "))),
     result = str_extract(value, "(AB)?NORMAL"),
     category = case_when(
@@ -40,6 +43,8 @@ ss(ev.1, score)
 
 
 # SEARCH FDC DB ####
+slowly_GET_foods_search <- slowly(GET_foods_search)
+possibly_parse_search_foods_df <- possibly(parse_search_foods_df, tibble())
 
 # keywords <- 
 #   c(
@@ -50,9 +55,10 @@ ss(ev.1, score)
 food_search.0 <- 
   ev.1$food %>% 
   purrr::map_dfr(
-    ~ GET_foods_search(.x, page_size = 5) %>% 
-      parse_search_foods_df()
+    ~ slowly_GET_foods_search(.x, page_size = 10) %>% 
+      possibly_parse_search_foods_df()
   )
+freeze(food_search.0)
 
 food_search.0 %>% 
   select(!where(is.list)) %>% 
@@ -72,12 +78,11 @@ food_search.unmatched.kw <-
   filter(!is.na(keyword_updated))
 
 # Search more aggressively for unmatched foods
-#///TODO: GET_ funs need to handle empty return (at least, when search fun finds no matches)
 food_search.unmatched.0 <- 
   food_search.unmatched.kw$keyword_updated %>% 
   purrr::map_dfr(
     ~ GET_foods_search(.x, page_size = 20) %>% 
-      parse_search_foods_df()
+      possibly_parse_search_foods_df()
   )
 
 
