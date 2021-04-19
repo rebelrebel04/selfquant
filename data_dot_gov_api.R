@@ -133,7 +133,7 @@ parse_foods_df <- function(resp) {
   # This intentionally duplicates food-level variables
   foods.1 <-
     foods.0 %>%
-    select(fdcId, food = description, ingredients, servingSize, servingSizeUnit) %>% 
+    select(fdcId, food = description, any_of(c("ingredients", "servingSize", "servingSizeUnit"))) %>% 
     left_join(nutrients.1, by = "fdcId")
   
   foods.1
