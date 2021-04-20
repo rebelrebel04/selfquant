@@ -126,33 +126,14 @@ has(food_search.2, keyword, fdcId)
 
 possibly_parse_foods_df <- possibly(parse_foods_df, tibble())
 
-test <- 
-  food_search.2[1:5, ] %>% 
-  pull(fdcId) %>% 
-  GET_foods()
-
-View(test$content)
-
-
 foods.0 <- 
   food_search.2$fdcId %>% 
-  #head(5) %>% 
+  # head(5) %>% 
   map_dfr(
     ~ GET_foods(.x) %>% 
-      #parse_foods_df()
       possibly_parse_foods_df()
   )
 freeze(foods.0)
-
-# NEXT:
-# Step through parse_foods_df() to see why some fields aren't
-# coming through for many of the foods -- e.g., servingSize??
-
-
-# Any foods not returned?
-setdiff(food_search.2$fdcId, foods.0$fdcId)
-
-
 
 # # Page by 20 foods (fdcId values) at a time
 # page_starts <- seq(from = 1, to = nrow(food_search.2), by = 20)
@@ -165,4 +146,69 @@ setdiff(food_search.2$fdcId, foods.0$fdcId)
 #     ~ GET_foods(food_search.2$fdcId[..1:..2]) %>% 
 #       possibly_parse_foods_df()
 #   )
+
+# Any foods not returned?
+setdiff(food_search.2$fdcId, foods.0$fdcId)
+
+# Spread nutrients wide
+foods.1 <- 
+  foods.0 %>% 
+  distinct(fdcId, nutrient, amount, .keep_all = TRUE) %>% 
+  unite(nutrient, nutrient, unitName) %>% 
+  pivot_wider(id_cols = c(fdcId, food, category), names_from = nutrient, values_from = amount, values_fn = first, values_fill = 0)
+freeze(foods.1)
+
+
+
+na_cols <- 
+  foods.1 %>% 
+  map_lgl(~ all(is.na(.x))) %>% 
+  which()
+na_cols
+
+nzv_cols <- 
+  foods.1 %>% 
+  map_lgl(~ var(.x, na.rm = TRUE) == 0) %>% 
+  # map_lgl(~ min(.x, na.rm = TRUE) == max(.x, na.rm = TRUE)) %>%   
+  which()
+nzv_cols
+
+
+foods.2 <- 
+  foods.1 %>% 
+  select(-all_of(c(na_cols, nzv_cols)), -`Vitamins and Other Components_g`) %>% 
+  mutate(
+    fdcId = paste(fdcId),
+    across(where(is.numeric), ~ .x / Energy_kcal)
+  ) %>% 
+  select(-Energy_kcal, -Energy_kJ) %>% 
+  filter(!is.infinite(Water_g)) %>% 
+  mutate(
+    across(where(is.numeric), scale)
+  )
+names(foods.2) <- make.names(names(foods.2))
+
+pca.fit <- prcomp(~ . -fdcId -food -category, data = foods.2, scale = FALSE)
+biplot(pca.fit)
+screeplot(pca.fit)
+
+# PC1 Loadings -- carb vs. fat?
+data.frame(loading = pca.fit$rotation[, 1]) %>% 
+  rownames_to_column("nutrient") %>% 
+  arrange(loading) %>% 
+  #head()
+  ggplot(aes(x = reorder(nutrient, loading), y = loading)) +
+    geom_bar(stat = "identity") +
+    coord_flip() +
+    theme_bw()
+
+# PC2 Loadings -- protein vs. carb/fat ?
+data.frame(loading = pca.fit$rotation[, 2]) %>% 
+  rownames_to_column("nutrient") %>% 
+  arrange(loading) %>% 
+  #head()
+  ggplot(aes(x = reorder(nutrient, loading), y = loading)) +
+    geom_bar(stat = "identity") +
+    coord_flip() +
+    theme_bw()
 

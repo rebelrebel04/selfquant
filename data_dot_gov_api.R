@@ -105,8 +105,10 @@ GET_foods <- function(fdc_ids, ...) {
   make_GET_request(endpoint, ...)
   
 }
-# fdc_ids <- c("534358", "373052")
+# fdc_ids <- c("174182", "373052")
+# fdc_ids <- c("169205")
 # resp <- GET_foods(fdc_ids)
+# View(parse_foods_df(resp))
 # str(resp$content, max.level = 1)
 
 
@@ -122,12 +124,15 @@ parse_foods_df <- function(resp) {
   # Create a long df of nutrient info keyed by food (fdcId)
   nutrients.1 <- 
     foods.0 %>% 
-    select(fdcId, foodNutrients) %>% 
+    select(fdcId, foodNutrients, foodPortions, foodCategory) %>% 
     unnest_longer(foodNutrients) %>% 
     unnest_wider(foodNutrients) %>% 
     hoist(nutrient, "name", "unitName") %>% 
-    hoist(foodNutrientDerivation, "description") %>% 
-    select(fdcId, nutrient = name, amount, unitName, description)
+    # hoist(foodNutrientDerivation, "description") %>% 
+    # unnest_longer(foodPortions) %>% 
+    # hoist(foodPortions, "gramWeight")
+    hoist(foodCategory, "description") %>% 
+    select(fdcId, category = description, nutrient = name, amount, unitName)
 
   # Join the long nutrient info onto food-level df
   # This intentionally duplicates food-level variables
