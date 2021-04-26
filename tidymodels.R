@@ -1,6 +1,17 @@
-
-
+library(tidyverse)
 library(tidymodels)
+library(ixplor)
+library(ixtra)
+
+options(freezer = "./rds/")
+
+# foods data ####
+revive(foods.1)
+
+
+
+# Ames data ####
+
 data(ames)
 ames <- mutate(ames, Sale_Price = log10(Sale_Price))
 
