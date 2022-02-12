@@ -34,3 +34,4 @@ vignettes/*.pdf
 *.json
 *.png
 diminishing_returns.R
+*.numbers
