@@ -49,6 +49,8 @@ extract_features <- function(x) {
 # extract_features(food.0$Protein)
 # extract_features(food.0$Nuts)
 
+
+# IVs ####
 food.1 <- 
   food.0 %>% 
   select(Veg, Fruit, Protein, Nuts, Extras, Snacks, Follow.ups) %>% 
@@ -71,6 +73,7 @@ food.1 %>%
   geom_tile()
 
 
+# DVs ####
 poop.1 <- 
   poop.0 %>% 
   mutate(
@@ -82,12 +85,55 @@ poop.1 <-
   select(dim_date, everything()) %>% 
   glimpse()
 
+# > DIM REDUCTION ####
+# Possible to reduce the DVs into 1 component?
+
+poop.2 <- 
+  poop.1 %>% 
+  mutate(
+    Speed_const = Speed == "constipated",
+    Quality_notgood = Quality != "good",
+    Quantity_high = Quantity == "high",
+    Color_notnormal = Color != "normal"
+  ) %>% 
+  select(-Speed, -Quality, -Quantity, -Color) %>% 
+  mutate(across(!dim_date, as.integer)) %>% 
+  glimpse()
+
+poop.2 %>% 
+  select(-dim_date) %>% 
+  filter(!is.na(Wipes)) %>% 
+  corrr::correlate() %>% 
+  corrr::rplot(print_cor = TRUE)
+
+fit.pca <- 
+  poop.2 %>% 
+  select(-dim_date) %>% 
+  filter(!is.na(Wipes)) %>% 
+  mutate(Wipes = scale(Wipes)[,1]) %>% 
+  princomp()
+fit.pca
+plot(fit.pca)
+biplot(fit.pca) #so higher values on pca1 are worse quality
+
+poop.3 <- 
+  poop.2 %>% 
+  filter(!is.na(Wipes)) %>% 
+  mutate(pca1 = fit.pca$scores[, 1]) %>% 
+  glimpse()
+
+
+
+
 
 # JOIN ####
+# NOTE: the filter on delta below enforces the assumption about 
+# transit time, ie, the window in which a given meal is assumed
+# to impact poop quality
 fuzzy_keys <- 
   expand.grid(
     food = food.1$dim_date,
-    poop = poop.1$dim_date
+    poop = poop.3$dim_date
   ) %>% 
   mutate(
     delta = difftime(poop, food, units = "hours")
@@ -109,18 +155,40 @@ all.1 <-
     by = c("dim_date" = "food")
   ) %>% 
   left_join(
-    poop.1,
+    poop.3,
     by = c("poop" = "dim_date")
   ) %>% 
+  # mutate(
+  #   Quality = factor(Quality, levels = c("soft", "mediocre", "good"), ordered = TRUE)
+  # ) %>% 
   filter(!is.na(poop)) %>% 
   glimpse()
 
+summary(all.1$pca1)
 summary(all.1$Wipes)
+summary(all.1$Quality)
 
+
+
+# INIT MODELING ####
+# Just toying around to start...
 fit.rf <- 
   all.1 %>% 
   filter(!is.na(Wipes)) %>% 
-  ranger::ranger(Wipes ~ . -dim_date -poop, data = ., importance = "impurity")
+  ranger::ranger(Wipes ~ . -dim_date -poop -pca1, data = ., importance = "impurity")
+
+fit.rf <- 
+  all.1 %>% 
+  ranger::ranger(pca1 ~ . -delta -dim_date -poop -Wipes -ghostpoopy -complete -gassy.y -bloated -Speed_const -Quality_notgood -Quantity_high -Color_notnormal, data = ., importance = "impurity")
+
+fit.rf <-
+  all.1 %>%
+  filter(!is.na(Quality)) %>%  
+  mutate(
+    Quality_notgood = Quality != "good"
+    # Quantity_high = Quantity == "high"
+  ) %>% 
+  ranger::ranger(Quality_notgood ~ . -Quality -pca1 -dim_date -poop -Wipes, data = ., importance = "impurity")
 
 fit.rf
 ranger::importance(fit.rf) %>% 
@@ -128,3 +196,42 @@ ranger::importance(fit.rf) %>%
   ggplot(aes(x = reorder(pred, value), y = value)) +
   geom_bar(stat = "identity") +
   coord_flip()
+
+
+
+
+
+# UNIVARIATE ####
+
+# Contingency tables for categorical variables
+prop.table(table(all.1$peanutbutter, all.1$Quality))
+prop.table(table(all.1$chocolate, all.1$Quality))
+prop.table(table(all.1$cabbage, all.1$Quality))
+prop.table(table(all.1$eggshardboiled, all.1$Quality))
+
+all.1 %>% 
+  split(.$peanutbutter) %>% 
+  map(~ summary(.$Wipes))
+
+all.1 %>% 
+  split(.$peanutbutter) %>% 
+  map(~ summary(.$pca1))
+
+all.1 %>% 
+  mutate(
+    Quality_notgood = Quality != "good",
+    Quantity_high = Quantity == "high"
+  ) %>% 
+  select(dim_date, veg_cooked:tortillas, pca1, Wipes, Quality_notgood, Quantity_high) %>% 
+  pivot_longer(!c(dim_date, pca1, Wipes, Quality_notgood, Quantity_high), names_to = "food", values_to = "present") %>% 
+  group_by(food, present) %>% 
+  summarize(
+    across(c(pca1, Wipes, Quality_notgood, Quantity_high), mean, na.rm = TRUE)
+  ) %>% 
+  filter(present) %>% 
+  pivot_longer(!c(food, present)) %>% 
+  
+  ggplot(aes(x = reorder(food, value), y = value)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  coord_flip() +
+  facet_grid(. ~ name, scales = "free_x")
